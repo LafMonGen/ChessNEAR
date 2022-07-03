@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" width="475" height="500" viewBox="000 000 475 500">
+  <rect width="100%" height="100%" fill="#000" />
+  </svg>
+  <script src="https://cdn.jsdelivr.net/npm/near-api-js@0.41.0/dist/near-api-js.min.js"></script>
+
+
+  <script>  
+const svg = document.querySelector("svg");
+ 
+// variable for the namespace 
+const svgns = "http://www.w3.org/2000/svg"; 
+
+
+const contract_id = '1chess.testnet';
+ 
+//1 connect to NEAR
+const near = new nearApi.Near({
+  keyStore: new nearApi.keyStores.BrowserLocalStorageKeyStore(),
+  networkId: 'testnet',
+  nodeUrl: 'https://rpc.testnet.near.org',
+  walletUrl: 'https://wallet.testnet.near.org'
+});
+
+
+//2 connect to the NEAR Wallet
+const wallet = new nearApi.WalletConnection(near, 'my-app');
+
+//3 connect to a NEAR smart contract
+const contract = new nearApi.Contract(wallet.account(), contract_id, {
+  viewMethods: ['get_coords'],
+  changeMethods: ['set_move', 'set_enter', 'set_end'] 
+});
+
+
+var wid = wallet.getAccountId();
+var view = "";
+var oppo = "";
+
+ 
+if (!wallet.isSignedIn()) {
+  const response = contract.get_coords({
+        id: wid
+      }).then( 
+        function(value) { 
+          if ( value[0] == "Board not found!" ) {
+            oppo=prompt("Enter opponent NEAR test wallet (*RECOMMENDED*), leave blank for a random one, start with VIEW:<wallet>.testnet for viewing. For any questions https://t.me/chess_testnet_near","");
+            if ( oppo.includes("VIEW:") == true ) {
+              // alert(oppo);
+              cview = oppo.replace("VIEW:", "");
+              view = cview;
+              wid = view;
+            } else { 
+              wallet.requestSignIn({
+                contractId: contract_id,
+                methodNames: ['get_coords', 'set_move', 'set_enter', 'set_end']
+              }); 
+            }
+          }  
+        },
+        function(error) {
+          alert(error); 
+        }
+  );
+} 
+ 
+var mult = 50
+var steps = 50 
+var zzz = 1;
+var x_shift = steps;
+var y_shift = steps;
+var entered = 0;
+
+
+var clicks = "";
+
+const alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"];
+
+
+if ( view == "" ) {
+  wid = wallet.getAccountId(); 
+  const response = contract.get_coords({
+        id: wid
+      }).then( 
+        function(value) {
+          // alert(value[0]);
+          if ( value[0] == "Board not found!" ) {
+            if (wallet.isSignedIn()) {
+              oppo=prompt("Enter opponent NEAR wallet, leave blank for a random one, start with VIEW:wallet for viewing","");
+              if ( oppo.includes("VIEW:") == true ) {
+                // alert(oppo);
+                cview = oppo.replace("VIEW:", "");
+                view = cview;
+                wid = view;
+              } else { 
+                contract.set_enter({
+                  args: { 
+                    opponent: oppo 
+                  }
+                });
+              }
+              setTimeout(function() {
+              }, 1000)
+            }
+            // }
+          }  
+        },
+        function(error) {
+          alert(error); 
+        }
+  );
+} else {
+  wid = view;
+} 
+
+
+var objects = {};
+var figs = {};
+
+var times = 8;
+x = 70;
+lv_white = true;
+for(var i = 0; i < times; i++){ 
+  x = mult * i;
+  y = mult;
+  lv_abc = document.createElementNS(svgns, "text");
+  lv_abc.setAttribute("x", x_shift + x );
+  lv_abc.setAttribute("y", y );
+  lv_abc.setAttribute("fill", "green");  
+  lv_abc.textContent = alphabet[i];  
+  svg.appendChild(lv_abc);
+
+  y3 = mult * i;
+  x3 = 17;
+  lv_abc = document.createElementNS(svgns, "text");
+  lv_abc.setAttribute("x", x3 );
+  lv_abc.setAttribute("y", 85 + y3 );
+  lv_abc.setAttribute("fill", "green");  
+  lv_abc.textContent = 8 - i;  
+  svg.appendChild(lv_abc);
+  
+  for(var i2 = 0; i2 < times; i2++){ 
+    xid = 8 - i2;
+    rect_id = alphabet[i] + xid; 
+
+    objects[rect_id] = document.createElementNS(svgns, "rect"); 
+    fx = 30 + x;
+    fy = 55 + y*i2;
+    objects[rect_id].setAttribute("x", fx );
+    objects[rect_id].setAttribute("y", fy );
+    if ( lv_white == true ) {
+      objects[rect_id].setAttribute("fill", "orange");
+      lv_white = false;
+    } else { 
+      objects[rect_id].setAttribute("fill", "grey");
+      lv_white = true;
+    }
+    objects[rect_id].setAttribute("width", mult);
+    objects[rect_id].setAttribute("height", mult);
+    objects[rect_id].setAttribute("name", rect_id);
+
+    objects[rect_id].addEventListener("click", rect_click);  
+    svg.appendChild(objects[rect_id]);
+
+
+    figs[rect_id] = document.createElementNS(svgns, "text");
+    fx = parseInt(fx) + x_shift / 2 - 9;
+    fy = parseInt(fy) + y_shift / 2 + 9;  
+    figs[rect_id].setAttribute("x", fx );
+    figs[rect_id].setAttribute("y", fy );  
+    figs[rect_id].setAttribute("font-size", "xx-large" );  
+    figs[rect_id].textContent = "";
+    figs[rect_id].setAttribute("name", rect_id); 
+    figs[rect_id].setAttribute("fill", "transparent");
+    figs[rect_id].addEventListener("click", rect_click); 
+    svg.appendChild(figs[rect_id]);
+
+  }
+  if ( lv_white == true ) { 
+    lv_white = false;
+  } else {  
+    lv_white = true;
+  }
+}
+
+ 
+var pawns = {};
+var pawns1 = {};
+var pawns2 = {};
+
+for(var pw = 0; pw < 16; pw++){
+  pawns[pw] = document.createElementNS(svgns, "rect");  
+  pawns[pw].setAttribute("fill", "transparent"); 
+  pawns[pw].setAttribute("width", 28);
+  pawns[pw].setAttribute("height", mult/5);
+  pawns[pw].setAttribute("rx", 7);
+  pawns[pw].addEventListener("click", rect_click); 
+  svg.appendChild(pawns[pw]);
+
+  pawns1[pw] = document.createElementNS(svgns, "polygon");   
+  pawns1[pw].setAttribute("fill", "transparent"); 
+  pawns1[pw].addEventListener("click", rect_click);    
+  svg.appendChild(pawns1[pw]); 
+
+  pawns2[pw] = document.createElementNS(svgns, "rect");  
+  pawns2[pw].setAttribute("fill", "transparent"); 
+  pawns2[pw].setAttribute("width", 10 );
+  pawns2[pw].setAttribute("height", 10 );
+  pawns2[pw].setAttribute("rx", 20);
+  pawns2[pw].addEventListener("click", rect_click);   
+  svg.appendChild(pawns2[pw]); 
+}
+ 
+var bish = {};
+var bish1 = {};
+var bish2 = {}; 
+
+var rook = {};
+var rook1 = {};
+var rook2 = {}; 
+
+var hors = {};
+var hors1 = {};
+var hors2 = {}; 
+
+for(var pw = 0; pw < 4; pw++){
+  bish[pw] = document.createElementNS(svgns, "rect");  
+  bish[pw].setAttribute("fill", "transparent"); 
+  bish[pw].setAttribute("width", 36);
+  bish[pw].setAttribute("height", mult/5);
+  bish[pw].setAttribute("rx", 7); 
+  bish[pw].addEventListener("click", rect_click);  
+  svg.appendChild(bish[pw]);
+
+
+  bish1[pw] = document.createElementNS(svgns, "rect");  
+  bish1[pw].setAttribute("fill", "transparent"); 
+  bish1[pw].setAttribute("width", 14 );
+  bish1[pw].setAttribute("height", 24 );
+  bish1[pw].setAttribute("rx", 20); 
+  bish1[pw].addEventListener("click", rect_click);  
+  svg.appendChild(bish1[pw]);
+
+
+  bish2[pw] = document.createElementNS(svgns, "rect");  
+  bish2[pw].setAttribute("fill", "transparent"); 
+  bish2[pw].setAttribute("width", 10 );
+  bish2[pw].setAttribute("height", 10 );
+  bish2[pw].setAttribute("rx", 20);  
+  bish2[pw].addEventListener("click", rect_click);  
+  svg.appendChild(bish2[pw]);
+
+  rook[pw] = document.createElementNS(svgns, "rect");  
+  rook[pw].setAttribute("fill", "transparent"); 
+  rook[pw].setAttribute("width", 36);
+  rook[pw].setAttribute("height", mult/5); 
+  rook[pw].addEventListener("click", rect_click);  
+  svg.appendChild(rook[pw]);
+
+
+  rook1[pw] = document.createElementNS(svgns, "rect");  
+  rook1[pw].setAttribute("fill", "transparent"); 
+  rook1[pw].setAttribute("width", 12 );
+  rook1[pw].setAttribute("height", 24 ); 
+  rook1[pw].addEventListener("click", rect_click);  
+  svg.appendChild(rook1[pw]);
+
+
+  rook2[pw] = document.createElementNS(svgns, "rect");  
+  rook2[pw].setAttribute("fill", "transparent"); 
+  rook2[pw].setAttribute("width", 16 );
+  rook2[pw].setAttribute("height", 16 ); 
+  rook2[pw].addEventListener("click", rect_click);  
+  svg.appendChild(rook2[pw]);
+
+  hors[pw] = document.createElementNS(svgns, "rect");  
+  hors[pw].setAttribute("fill", "transparent"); 
+  hors[pw].setAttribute("width", 36);
+  hors[pw].setAttribute("height", mult/5); 
+  hors[pw].setAttribute("rx", 5);  
+  hors[pw].addEventListener("click", rect_click);  
+  svg.appendChild(hors[pw]);
+
+
+  hors1[pw] = document.createElementNS(svgns, "rect");  
+  hors1[pw].setAttribute("fill", "transparent"); 
+  hors1[pw].setAttribute("width", 10 );
+  hors1[pw].setAttribute("height", 30 );
+  hors1[pw].setAttribute("rx", 4);   
+  hors1[pw].addEventListener("click", rect_click);  
+  svg.appendChild(hors1[pw]);
+
+
+  hors2[pw] = document.createElementNS(svgns, "polygon");  
+  hors2[pw].setAttribute("fill", "transparent"); 
+  hors2[pw].addEventListener("click", rect_click);  
+  svg.appendChild(hors2[pw]);
+}
+
+var quee = {};
+var quee1 = {};
+var quee2 = {}; 
+
+var king = {};
+var king1 = {};
+var king2 = {};
+
+for(var pw = 0; pw < 2; pw++){ 
+  quee[pw] = document.createElementNS(svgns, "polygon");  
+  quee[pw].setAttribute("fill", "transparent"); 
+  quee[pw].addEventListener("click", rect_click);  
+  svg.appendChild(quee[pw]);
+
+  quee1[pw] = document.createElementNS(svgns, "polygon");  
+  quee1[pw].setAttribute("fill", "transparent"); 
+  quee1[pw].addEventListener("click", rect_click);  
+  svg.appendChild(quee1[pw]);
+
+  quee2[pw] = document.createElementNS(svgns, "polygon");  
+  quee2[pw].setAttribute("fill", "transparent"); 
+  quee2[pw].addEventListener("click", rect_click);  
+  svg.appendChild(quee2[pw]);
+
+
+  king[pw] = document.createElementNS(svgns, "polygon");  
+  king[pw].setAttribute("fill", "transparent"); 
+  king[pw].addEventListener("click", rect_click);  
+  svg.appendChild(king[pw]);
+
+  king1[pw] = document.createElementNS(svgns, "polygon");  
+  king1[pw].setAttribute("fill", "transparent"); 
+  king1[pw].addEventListener("click", rect_click);  
+  svg.appendChild(king1[pw]);
+
+  king2[pw] = document.createElementNS(svgns, "polygon");  
+  king2[pw].setAttribute("fill", "transparent"); 
+  king2[pw].addEventListener("click", rect_click);  
+  svg.appendChild(king2[pw]);
+}
+
+
+lv_white_wid = document.createElementNS(svgns, "text"); 
+lv_white_wid.setAttribute("x", 20 );
+lv_white_wid.setAttribute("y", 20 );  
+lv_white_wid.setAttribute("fill", "yellow" );  
+lv_white_wid.textContent = ""; 
+svg.appendChild(lv_white_wid);
+
+
+lv_b_wid = document.createElementNS(svgns, "text"); 
+lv_b_wid.setAttribute("x", 20 );
+lv_b_wid.setAttribute("y", 480 );  
+lv_b_wid.setAttribute("fill", "yellow" );  
+lv_b_wid.textContent = ""; 
+svg.appendChild(lv_b_wid);
+
+lv_b_ind = document.createElementNS(svgns, "text"); 
+lv_b_ind.setAttribute("x", 370 );
+lv_b_ind.setAttribute("y", 480 );  
+lv_b_ind.setAttribute("fill", "lime" );  
+lv_b_ind.textContent = ""; 
+svg.appendChild(lv_b_ind);
+
+
+lv_w_ind = document.createElementNS(svgns, "text"); 
+lv_w_ind.setAttribute("x", 370 );
+lv_w_ind.setAttribute("y", 30 );  
+lv_w_ind.setAttribute("fill", "lime" );  
+lv_w_ind.textContent = ""; 
+svg.appendChild(lv_w_ind);
+
+
+lv_end = document.createElementNS(svgns, "rect"); 
+lv_end.setAttribute("x", 440 );
+lv_end.setAttribute("y", 110 ); 
+lv_end.setAttribute("width", 22);
+lv_end.setAttribute("height", 55);  
+lv_end.setAttribute("fill", "red" );
+lv_end.setAttribute("rx", 13);  
+lv_end.addEventListener("click", end_click);  
+svg.appendChild(lv_end);
+
+
+lv_con = document.createElementNS(svgns, "text"); 
+lv_con.setAttribute("x", 30 );
+lv_con.setAttribute("y", 455 );  
+lv_con.setAttribute("fill", "white" ); 
+lv_con.setAttribute("transform", "translate(900 20) rotate(90)");
+lv_con.textContent = "conceed"; 
+svg.appendChild(lv_con);
+
+
+lv_st = document.createElementNS(svgns, "text"); 
+lv_st.setAttribute("x", 170 );
+lv_st.setAttribute("y", 460 );  
+lv_st.setAttribute("fill", "orange" ); 
+lv_st.setAttribute("font-size", "x-large" ); 
+lv_st.setAttribute("transform", "translate(900 20) rotate(90)");
+lv_st.textContent = "_GAME PREPARE_"; 
+svg.appendChild(lv_st);
+
+
+var gv_ind = 0;
+var gv_fen = 0;
+var gv_to = "";
+var gv_role = "";
+
+function end_click(evt) {
+  var lv_end_cond=prompt("Please type yes to finish the game","yes"); //paper hENDs ^)
+  if ( lv_end_cond == "yes") { 
+    contract.set_end({
+        args: {
+        } 
+    });
+  }
+}
+
+var lv_from;
+function rect_click(evt) {
+  if ( clicks == "") {
+    clicks = evt.target.getAttribute("name"); 
+    lv_from = objects[clicks]; 
+
+    lv_from.setAttribute("rx", 15);
+
+  } else { 
+    to = evt.target.getAttribute("name");
+    lv_to = evt.target;
+
+    lv_from_role = figs[clicks].textContent;
+    lv_from_upper = lv_from_role.toUpperCase();
+    if ( lv_from_role != "" ) {
+      lv_to_role = figs[to].textContent;
+      if ( lv_to_role == "") {
+        if ( lv_from_upper == "P" ) {
+          if ( lv_to.getAttribute("x") != lv_from.getAttribute("x") ) {
+            lv_to_role = "EnPassant"; //Битое поле
+          }
+        }
+      }
+
+      var lv_promotion = "";
+      if ( lv_from_upper == "P" ) {
+        if ( to[1] == "8" || to[1] == "1" ) { 
+          var name=prompt("Please enter promotion_role (Bishop, kNight, Rook, Officer)","Queen");
+          if ( name[0] == "K" ) {
+            name[0] = "N";
+          } 
+          lv_promotion = name[0];
+          lv_promotion.toUpperCase();
+          lv_from_upper = lv_promotion;
+        }
+      }
+
+      if ( lv_from_upper == 'K' ) {
+        if ( clicks[0] == 'E' ) {
+          if ( to[0] == "G" ) {  
+            to = "E" + clicks[1];
+            clicks = "H" + clicks[1];
+            lv_to_role = "Castle"; //Рокировка
+          } else if ( to[0] == "C" ) { 
+            to = "E" + clicks[1];
+            clicks = "A" + clicks[1];
+            lv_to_role = "Castle"; //Рокировка
+          }
+        }
+      }
+
+      contract.set_move({
+        args: { 
+          from: clicks,
+          to: to,
+          role: lv_from_role,
+          capture_role: lv_to_role,
+          promotion_role: lv_promotion,
+        }
+      });
+
+    }
+    lv_from.setAttribute("rx", 0); 
+
+    if ( lv_from_upper != "" ) {
+      gv_to = clicks+":"+to;
+      lv_st.textContent = gv_to+" Wait up to 15 sec!";
+      lv_st.setAttribute("fill", "orange");
+      gv_role = gv_to+lv_from_upper;
+      gv_ind == 0;
+    }
+
+    clicks = "";
+  }    
+ 
+}
+  
+(function myLoop(i) {
+  setTimeout(function() { 
+    //call the get_coords view method
+    const response = contract.get_coords({
+          id: wid
+        }).then( 
+          function(value) { 
+            for(var ti = 0; ti < 16; ti++){
+              pawns[ti].setAttribute("fill", "transparent");  
+              pawns1[ti].setAttribute("fill", "transparent");  
+              pawns2[ti].setAttribute("fill", "transparent");
+              if (ti < 4) {
+                bish[ti].setAttribute("fill", "transparent"); 
+                bish1[ti].setAttribute("fill", "transparent"); 
+                bish2[ti].setAttribute("fill", "transparent"); 
+                hors[ti].setAttribute("fill", "transparent"); 
+                hors1[ti].setAttribute("fill", "transparent"); 
+                hors2[ti].setAttribute("fill", "transparent"); 
+                rook[ti].setAttribute("fill", "transparent"); 
+                rook1[ti].setAttribute("fill", "transparent"); 
+                rook2[ti].setAttribute("fill", "transparent"); 
+              }
+              if (ti < 2) {
+                quee[ti].setAttribute("fill", "transparent"); 
+                quee1[ti].setAttribute("fill", "transparent"); 
+                quee2[ti].setAttribute("fill", "transparent"); 
+                king[ti].setAttribute("fill", "transparent"); 
+                king1[ti].setAttribute("fill", "transparent"); 
+                king2[ti].setAttribute("fill", "transparent");  
+              }
+            }
+
+            var pi = 0;
+            var bi = 0;
+            var ni = 0;
+            var ri = 0;
+            var ki = 0;
+            var qi = 0;
+
+            lv_white_wid.textContent = value[2].toUpperCase();
+            lv_b_wid.textContent = value[1].toUpperCase();
+            if ( value[1] == wid ) {
+              lv_b_wid.textContent = lv_b_wid.textContent + '  _YOUR SIDE_';
+            } else if ( value[2] == wid )  {
+              lv_white_wid.textContent = lv_white_wid.textContent + '  _YOUR SIDE_';
+            } else  {
+              lv_white_wid.textContent = lv_white_wid.textContent + '  ___VIEWING___';
+              lv_b_wid.textContent = lv_b_wid.textContent + '  ___VIEWING___';
+            }
+
+            if ( value[3] == "1" ) {
+              lv_b_ind.textContent = "";
+              lv_w_ind.textContent = "TURN"; 
+            } else if ( value[3] == "0" ) {
+              lv_w_ind.textContent = "";
+              lv_b_ind.textContent = "TURN"; 
+            } else if ( value[3] == "3" ) {
+              lv_w_ind.textContent = "";
+              lv_b_ind.textContent = "WINNER"; 
+            } else if ( value[3] == "2" ) {
+              lv_w_ind.textContent = "WINNER";
+              lv_b_ind.textContent = ""; 
+            } else if ( value[3] == "7" ) {
+              lv_w_ind.textContent = "DEUCE";
+              lv_b_ind.textContent = "DEUCE"; 
+            }
+
+            xx = 0;
+            yy = 8;
+            tt = 70; 
+
+            lv_fen = value[0];
+            if ( lv_fen == "Board not found!" ) {
+              lv_fen = "";
+            }
+            for(var fen_i = 0; fen_i < tt; fen_i++){
+              if ( lv_fen[fen_i] == ' ' ) { 
+                break;
+              } else if ( lv_fen[fen_i] == '/' ) { 
+                xx = 0;
+                yy--;
+                continue;
+              } else if ( (/[a-zA-Z]/).test(lv_fen[fen_i]) == true ) { 
+                rid = alphabet[xx] + yy; 
+                xx++;  
+
+                //Start: New style with figures:
+                var temp_o;
+                var temp_o1;
+                var temp_o2; 
+                fx = parseInt(figs[rid].getAttribute("x"));
+                fy = parseInt(figs[rid].getAttribute("y"));
+                if ( lv_fen[fen_i].toUpperCase() == 'P' ) {
+                  temp_o = pawns[pi];
+                  temp_o1 = pawns1[pi];
+                  temp_o2 = pawns2[pi];
+                  // alert(fx);
+
+                  temp_o.setAttribute("x", fx - 4 );
+                  temp_o.setAttribute("y", fy ); 
+                  // alert(fx);
+                  
+                  lv_p = (fx+3).toString() + "," + fy.toString() + " " + (fx+10).toString() + "," + (fy-20).toString() + " " + (fx+18).toString() + "," + fy.toString();
+
+                  // alert(lv_p);
+                  temp_o1.setAttribute("points", lv_p ); 
+                 
+                  temp_o2.setAttribute("x", fx + 5 );
+                  temp_o2.setAttribute("y", fy - 21); 
+ 
+
+                  pi++;
+
+                }
+                if ( lv_fen[fen_i].toUpperCase() == 'B' ) {
+                  temp_o = bish[bi];
+                  temp_o1 = bish1[bi];
+                  temp_o2 = bish2[bi];  
+
+                  temp_o.setAttribute("x", fx - 8 );
+                  temp_o.setAttribute("y", fy );  
+
+                  temp_o1.setAttribute("x", fx + 3  );
+                  temp_o1.setAttribute("y", fy - 19 );  
+
+                  temp_o2.setAttribute("x", fx + 5  );
+                  temp_o2.setAttribute("y", fy - 28 );  
+
+                  bi++; 
+                }
+                if ( lv_fen[fen_i].toUpperCase() == 'R' ) {
+                  temp_o  =  rook[ri];
+                  temp_o1 = rook1[ri];
+                  temp_o2 = rook2[ri];  
+
+                  temp_o.setAttribute("x", fx - 8 );
+                  temp_o.setAttribute("y", fy );  
+
+                  temp_o1.setAttribute("x", fx + 5  );
+                  temp_o1.setAttribute("y", fy - 19 );  
+
+                  temp_o2.setAttribute("x", fx + 3  );
+                  temp_o2.setAttribute("y", fy - 26 );  
+
+                  ri++; 
+                } 
+                if ( lv_fen[fen_i].toUpperCase() == 'N' ) {
+                  temp_o  =  hors[ni];
+                  temp_o1 = hors1[ni];
+                  temp_o2 = hors2[ni];  
+
+                  temp_o.setAttribute("x", fx - 8 );
+                  temp_o.setAttribute("y", fy );  
+
+                  temp_o1.setAttribute("x", fx + 6  );
+                  temp_o1.setAttribute("y", fy - 24 );  
+ 
+                  lv_p = (fx+1).toString() + "," + (fy-7).toString() + " " + (fx-3).toString() + "," + (fy-16).toString() + " " + (fx+19).toString() + "," + (fy-23).toString(); 
+                  temp_o2.setAttribute("points", lv_p ); 
+                  ni++; 
+                } 
+                if ( lv_fen[fen_i].toUpperCase() == 'Q' ) {
+                  temp_o  = quee[qi];
+                  temp_o1 = quee1[qi];
+                  temp_o2 = quee2[qi];  
+
+                  lv_p = (fx+5).toString() + "," + (fy+10).toString() + " " + (fx-2).toString() + "," + (fy-25).toString() + " " + (fx+15).toString() + "," + (fy+10).toString(); 
+                  temp_o.setAttribute("points", lv_p );
+ 
+                  lv_p = (fx).toString() + "," + (fy+10).toString() + " " + (fx+10).toString() + "," + (fy-30).toString() + " " + (fx+20).toString() + "," + (fy+10).toString(); 
+                  temp_o1.setAttribute("points", lv_p );
+
+                  lv_p = (fx+5).toString() + "," + (fy+10).toString() + " " + (fx+22).toString() + "," + (fy-25).toString() + " " + (fx+15).toString() + "," + (fy+10).toString(); 
+                  temp_o2.setAttribute("points", lv_p );
+
+                  qi++; 
+                } 
+                if ( lv_fen[fen_i].toUpperCase() == 'K' ) {
+                  temp_o  =  king[ki];
+                  temp_o1 = king1[ki];
+                  temp_o2 = king2[ki];  
+
+                  lv_p = (fx-5).toString() + "," + (fy+10).toString() + " " + (fx-2).toString() + "," + (fy-28).toString() + " " + (fx+20).toString() + "," + (fy+10).toString(); 
+                  temp_o.setAttribute("points", lv_p );
+ 
+                  lv_p = (fx).toString() + "," + (fy+10).toString() + " " + (fx+10).toString() + "," + (fy-28).toString() + " " + (fx+20).toString() + "," + (fy+10).toString(); 
+                  temp_o1.setAttribute("points", lv_p );
+
+                  lv_p = (fx).toString() + "," + (fy+10).toString() + " " + (fx+22).toString() + "," + (fy-28).toString() + " " + (fx+25).toString() + "," + (fy+10).toString(); 
+                  temp_o2.setAttribute("points", lv_p );
+
+                  ki++; 
+                } 
+
+                if ( temp_o != undefined ) {
+                  if ( lv_fen[fen_i] == lv_fen[fen_i].toUpperCase() ) {
+                    col = 'white';
+                  } else {
+                    col = 'black'; 
+                  }
+                  // alert(col);
+                  temp_o.setAttribute("fill", col);  
+                  temp_o1.setAttribute("fill", col);  
+                  temp_o2.setAttribute("fill", col);  
+                  temp_o.setAttribute( "name", rid);  
+                  temp_o1.setAttribute("name", rid);  
+                  temp_o2.setAttribute("name", rid);
+
+                }
+                //End: New style with figures
+ 
+                figs[rid].textContent = lv_fen[fen_i];
+                if ( gv_role[5] == lv_fen[fen_i].toUpperCase() ) { 
+                  if ( gv_role[3] == rid[0] ) {
+                    if ( gv_role[4] == rid[1] ) {
+                      if ( gv_to != "" ) {
+                        lv_rid_from = gv_role[0]+gv_role[1];
+                        if ( figs[lv_rid_from].textContent == "" ) { 
+                          lv_st.textContent = gv_to+" Ok";
+                          lv_st.setAttribute("fill", "green"); 
+                          gv_to = "";
+                        }
+                      }
+                    }
+                  }
+                }
+
+              } else { 
+                for(var clear_i = 0; clear_i < parseInt(lv_fen[fen_i]); clear_i++){
+                  rid = alphabet[xx] + yy;
+                  xx++;
+                  figs[rid].textContent = "";
+                }
+              }
+            } 
+
+            if ( gv_to != "") {
+              if ( gv_ind == 4 ) {
+                if ( lv_st.getAttribute("fill") != "green" ) { 
+                  lv_st.textContent = gv_to+" Wrong move or turn!";
+                  lv_st.setAttribute("fill", "red");
+                }
+              }
+              gv_ind++;
+            }
+
+            if ( gv_fen == 0 ) {
+              gv_fen = 1;
+              lv_st.textContent = "";
+            } 
+          },
+          function(error) {alert(error); }
+    );
+ 
+
+    if (--i) myLoop(i); //  decrement i and call myLoop again if i > 0
+  }, 3000) //  timeout in milliseconds (screen refresh)
+})(50000); //  pass the number of iterations as an argument
+
+ 
+</script>
+</body>
+
+</html>
